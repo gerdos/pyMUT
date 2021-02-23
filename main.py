@@ -1,27 +1,259 @@
 import numpy as np
 import os
 
+class Atom:
+    def __init__(self, ):
 
-def load_rotamers(rotamer_loc="/dlab/data/ROTAMERS/dunbrack/ALL.bbdep.rotamers.lib"):
-    _dunbrack = {}
-    with open(rotamer_loc) as fn:
-        for line in fn:
-            if line.startswith("#"):
+
+class PDB:
+    def __init__(self, input_data):
+        import gzip
+        self.pdb_dct = {}
+        if os.path.isfile(input_data):
+            file_handler = open(input_data)
+        elif os.path.isfile('/dlab/data/PDB/pdb/{}/pdb{}.ent.gz'.format(input_data.lower()[1:3], input_data.lower())):
+            file_handler = gzip.open(
+                '/dlab/data/PDB/pdb/{}/pdb{}.ent.gz'.format(input_data.lower()[1:3], input_data.lower()), 'rt')
+        else:
+            raise FileNotFoundError()
+        for line in file_handler:
+            if line.startswith("ENDMDL"):
+                break
+            if line.startswith("ATOM") or line.startswith("HETATM"):
+                if line[16] not in [" ", "A"]:
+                    continue
+                if line[21] not in self.pdb_dct:
+                    self.pdb_dct[line[21]] = {}
+                if int(line[22:26].strip()) not in self.pdb_dct[line[21]]:
+                    self.pdb_dct[line[21]][int(line[22:26].strip())] = {
+                        'RES': line[17:20],
+                        "CHAIN": line[21],
+                        'ORDER': []
+                    }
+                self.pdb_dct[line[21]][int(line[22:26].strip())][line[12:16].strip()] = np.array(
+                    [float(line[30:38]), float(line[38:46]), float(line[46:54])])
+                self.pdb_dct[line[21]][int(line[22:26].strip())]['ORDER'].append(line[12:16].strip())
+        # Check the PDB, remove partial residues
+        for chain in self.pdb_dct.keys():
+            remove = set()
+            for res_num in self.pdb_dct[chain].keys():
+                if len(self.pdb_dct[chain][res_num]["ORDER"]) < 4:
+                    remove.add(res_num)
+                for i in ['C', 'N', 'CA', 'O']:
+                    if i not in self.pdb_dct[chain][res_num]:
+                        remove.add(res_num)
+            for i in remove:
+                self.pdb_dct[chain].pop(i)
+
+        file_handler.close()
+
+    def parse(self):
+        return self.pdb_dct
+
+    def phi_psi(self, chain, res_num):
+        # # Take care of missing resudies, and heteroatoms
+
+        if res_num - 1 not in self.pdb_dct[chain]:
+            return None, dihedral_from_vectors(self.pdb_dct[chain][res_num]['N'],
+                                               self.pdb_dct[chain][res_num]['CA'],
+                                               self.pdb_dct[chain][res_num]['C'],
+                                               self.pdb_dct[chain][res_num + 1]['N'])
+        elif res_num + 1 not in self.pdb_dct[chain]:
+            return dihedral_from_vectors(self.pdb_dct[chain][res_num - 1]['C'], self.pdb_dct[chain][res_num]['N'],
+                                         self.pdb_dct[chain][res_num]['CA'],
+                                         self.pdb_dct[chain][res_num]['C']), None
+        else:
+
+            return dihedral_from_vectors(self.pdb_dct[chain][res_num - 1]['C'], self.pdb_dct[chain][res_num]['N'],
+                                         self.pdb_dct[chain][res_num]['CA'],
+                                         self.pdb_dct[chain][res_num]['C']), dihedral_from_vectors(
+                self.pdb_dct[chain][res_num]['N'], self.pdb_dct[chain][res_num]['CA'],
+                self.pdb_dct[chain][res_num]['C'], self.pdb_dct[chain][res_num + 1]['N'])
+
+    def introduce_rotamer(self, pdb_object, axis, chi):
+        for i in pdb_object['ORDER'][pdb_object['ORDER'].index(axis[1]) + 1:]:
+            if i == "H":
                 continue
-            if not line.split()[0] in _dunbrack:
-                _dunbrack[line.split()[0]] = {}
-            if not int(line.split()[1]) in _dunbrack[line.split()[0]]:
-                _dunbrack[line.split()[0]][int(line.split()[1])] = {}
-            if not int(line.split()[2]) in _dunbrack[line.split()[0]][int(line.split()[1])]:
-                _dunbrack[line.split()[0]][int(line.split()[1])][int(line.split()[2])] = []
-            _dunbrack[line.split()[0]][int(line.split()[1])][int(line.split()[2])].append({
-                'prob': float(line.split()[8]),
-                'CHI1': float(line.split()[9]),
-                'CHI2': float(line.split()[10]),
-                'CHI3': float(line.split()[11]),
-                'CHI4': float(line.split()[12])
-            })
-    return _dunbrack
+            yield i, np.dot(rotation_matrix(pdb_object[axis[0]] - pdb_object[axis[1]], chi),
+                            pdb_object[i] - pdb_object[axis[1]]) + pdb_object[axis[1]]
+
+    def mutate(self, chain, mutate_to, res_num, rotamer_lib=None, mutation_type="random"):
+        """
+        Mutates amino acid X at position index to a given residue wigth the respective highest probability rotamer
+        :param res_num: Int, position
+        :param mutate_to: Residue 3 letter AA code
+        :param chain: Chain identifier for the residue
+        :param rotamer_lib: Preloaded rotamer library to speed things up
+        :param mutation_type: How to introduce the rotamer.
+            random: A random rotamer will be used based on the amino acid frequency of the Eukariota proteome
+            first: The rotamer with the highest probability will be used
+            best: The rotamer with the least clashes will be used (in case of a tie 'first' will be used amongst the winners)
+        :return: Mutates the object
+        """
+        if not rotamer_lib:
+            rotamer_lib = load_rotamers()
+        phi, psi = [round(np.rad2deg(x), -1) if x else 0 for x in self.phi_psi(chain, res_num)]
+        # print(phi, psi)
+        coords = self.pdb_dct[chain][res_num]
+        # Do the rigid body transformation
+        sample_residue = RESIDUE_STRUCTUES[mutate_to]
+        starting_points = np.mat([sample_residue["N"], sample_residue["CA"], sample_residue["C"], sample_residue["O"]])
+        end_points = np.mat([coords["N"], coords["CA"], coords["C"], coords["O"]])
+        R, t = rigid_transform_3D(starting_points, end_points)
+        break_atom = coords['ORDER'][
+            max([idx for idx, atom in enumerate(coords['ORDER']) if atom in ['C', 'N', "CA", "O"]])]
+        for i in coords['ORDER'][coords['ORDER'].index(break_atom) + 1:]:
+            coords.pop(i)
+
+        break_atom = "CB"
+        if mutate_to != "GLY":
+            # Do the rigid body transformation
+            for i in RESIDUE_ORDER[mutate_to][RESIDUE_ORDER[mutate_to].index(break_atom):]:
+                coords[i] = np.squeeze(np.asarray(np.dot(R, sample_residue[i]) + t.T))
+
+        coords['ORDER'] = RESIDUE_ORDER[mutate_to]
+        coords['RES'] = mutate_to
+        if mutate_to in ["ALA", "GLY"]:
+            self.pdb_dct[chain][res_num] = coords
+            return
+        if mutation_type == 'first':
+            selected_rotamer = sorted(rotamer_lib[mutate_to][phi][psi], key=lambda x: x['prob'], reverse=True)[0]
+        elif mutation_type == 'random':
+            p = np.array([x['prob'] for x in rotamer_lib[mutate_to][phi][psi]])
+            p /= p.sum()
+            selected_rotamer = np.random.choice(rotamer_lib[mutate_to][phi][psi], p=p)
+        elif mutation_type == 'best':
+            selected_rotamer = self.select_best_rotemer_based_on_clashes(chain, coords, rotamer_lib[mutate_to][phi][psi])
+        else:
+            raise ValueError("Mutation type '{}' not valid".format(mutation_type))
+        # Introduce the rotamer
+        for angle in ['CHI1', 'CHI2', 'CHI3', 'CHI4']:
+            if mutate_to not in CHI_ANGLES[angle]:
+                continue
+
+            dihedral_start = dihedral_from_vectors(
+                *[coords[x] for x in CHI_ANGLES[angle][mutate_to]['ref_plane']])
+            rotation_angle = dihedral_start - np.deg2rad(selected_rotamer[angle])
+            for i in self.introduce_rotamer(coords, CHI_ANGLES[angle][mutate_to]['axis'],
+                                       rotation_angle):
+                coords[i[0]] = i[1]
+
+        self.pdb_dct[chain][res_num] = coords
+
+    def generate_all_rotamers(self, chain, mutate_to, res_num, rotamer_lib=None):
+        """
+        Mutates amino acid X at position index to a given residue wigth the respective highest probability rotamer
+        :param res_num: Int, position
+        :param mutate_to: Residue 3 letter AA code
+        :param chain: Chain identifier for the residue
+        :param rotamer_lib: Preloaded rotamer library to speed things up
+        :param mutation_type: How to introduce the rotamer.
+            random: A random rotamer will be used based on the amino acid frequency of the Eukariota proteome
+            first: The rotamer with the highest probability will be used
+            best: The rotamer with the least clashes will be used (in case of a tie 'first' will be used amongst the winners)
+        :return: Mutates the object
+        """
+        if not rotamer_lib:
+            rotamer_lib = load_rotamers()
+        phi, psi = [round(np.rad2deg(x), -1) if x else 0 for x in self.phi_psi(chain, res_num)]
+        # print(phi, psi)
+        coords = self.pdb_dct[chain][res_num]
+        # Do the rigid body transformation
+        sample_residue = RESIDUE_STRUCTUES[mutate_to]
+        starting_points = np.mat([sample_residue["N"], sample_residue["CA"], sample_residue["C"], sample_residue["O"]])
+        end_points = np.mat([coords["N"], coords["CA"], coords["C"], coords["O"]])
+        R, t = rigid_transform_3D(starting_points, end_points)
+        break_atom = coords['ORDER'][
+            max([idx for idx, atom in enumerate(coords['ORDER']) if atom in ['C', 'N', "CA", "O"]])]
+        for i in coords['ORDER'][coords['ORDER'].index(break_atom) + 1:]:
+            coords.pop(i)
+
+        break_atom = "CB"
+        if mutate_to != "GLY":
+            # Do the rigid body transformation
+            for i in RESIDUE_ORDER[mutate_to][RESIDUE_ORDER[mutate_to].index(break_atom):]:
+                coords[i] = np.squeeze(np.asarray(np.dot(R, sample_residue[i]) + t.T))
+
+        coords['ORDER'] = RESIDUE_ORDER[mutate_to]
+        coords['RES'] = mutate_to
+        if mutate_to in ["ALA", "GLY"]:
+            self.pdb_dct[chain][res_num] = coords
+            yield {'prob': 1}
+            return
+
+        for selected_rotamer in rotamer_lib[mutate_to][phi][psi]:
+            # Introduce the rotamer
+            for angle in ['CHI1', 'CHI2', 'CHI3', 'CHI4']:
+                if mutate_to not in CHI_ANGLES[angle]:
+                    continue
+
+                dihedral_start = dihedral_from_vectors(
+                    *[coords[x] for x in CHI_ANGLES[angle][mutate_to]['ref_plane']])
+                rotation_angle = dihedral_start - np.deg2rad(selected_rotamer[angle])
+                for i in self.introduce_rotamer(coords, CHI_ANGLES[angle][mutate_to]['axis'],
+                                           rotation_angle):
+                    coords[i[0]] = i[1]
+
+            self.pdb_dct[chain][res_num] = coords
+            yield selected_rotamer
+
+    def select_best_rotemer_based_on_clashes(self, chain, coords, rotamers):
+        skip = ['RES', 'CHAIN', 'ORDER']
+        best_rotamer = None
+        lowest_energy = float('inf')
+        for rotamer in rotamers:
+            vdw_energy = 0
+            for angle in ['CHI1', 'CHI2', 'CHI3', 'CHI4']:
+                if coords['RES'] not in CHI_ANGLES[angle]:
+                    continue
+
+                dihedral_start = dihedral_from_vectors(
+                    *[coords[x] for x in CHI_ANGLES[angle][coords['RES']]['ref_plane']])
+                rotation_angle = dihedral_start - np.deg2rad(rotamer[angle])
+                for i in self.introduce_rotamer(coords, CHI_ANGLES[angle][coords['RES']]['axis'],
+                                                rotation_angle):
+                    coords[i[0]] = i[1]
+
+            for rotamer_atom, rotamer_vector in coords.items():
+                if rotamer_atom in skip:
+                    continue
+                for pdb_chain, residues in self.pdb_dct.items():
+                    if pdb_chain == chain:
+                        continue
+                    for residue, atoms in residues.items():
+                        for atom, vector in atoms.items():
+                            if atom in skip:
+                                continue
+                            # print(atom, vector)
+                            dist = self.distance(rotamer_vector, vector)
+                            if dist > 6:
+                                continue
+                            try:
+                                vdw_radi = VW_RADII[atoms['RES']][atom] + VW_RADII[coords['RES']][rotamer_atom]
+                            except KeyError:
+                                continue
+                            vdw_energy += ((vdw_radi/dist)**12 - (vdw_radi/dist)**6)
+
+            if vdw_energy < lowest_energy:
+                lowest_energy = vdw_energy
+                best_rotamer = rotamer
+        return best_rotamer
+
+    def distance(self, x, y):
+        return np.sqrt((x[0] - y[0])**2 + (x[1] - y[1])**2 + (x[2] - y[2])**2)
+
+    def dump(self, file_name):
+        with open(file_name, "w") as fn:
+            atom_idx = 1
+            for i, j in sorted(self.pdb_dct.items()):
+                for idx, res in sorted(j.items()):
+                    for atom in res['ORDER']:
+                        fn.write("{:<6}{:>5}  {:<4}{} {}{:>4}{:>12.3f}{:>8.3f}{:>8.3f}{:>6.2f}{:>6.2f}{:>12}\n".format(
+                            'ATOM', atom_idx, atom, res['RES'], i, idx, res[atom][0], res[atom][1], res[atom][2], 1, 1,
+                            atom[0]))
+                        atom_idx += 1
+
+
 
 CHI_ANGLES = {"CHI1": {'CYS': {'axis': ['CA', 'CB'], 'ref_plane': ['N', 'CA', 'CB', 'SG']},
                        'ASP': {'axis': ['CA', 'CB'], 'ref_plane': ['N', 'CA', 'CB', 'CG']},
@@ -395,6 +627,28 @@ VW_RADII = {
     }
 }
 
+def load_rotamers(rotamer_loc="rotamers.lib"):
+    _dunbrack = {}
+    with open(rotamer_loc) as fn:
+        for line in fn:
+            if line.startswith("#"):
+                continue
+            if not line.split()[0] in _dunbrack:
+                _dunbrack[line.split()[0]] = {}
+            if not int(line.split()[1]) in _dunbrack[line.split()[0]]:
+                _dunbrack[line.split()[0]][int(line.split()[1])] = {}
+            if not int(line.split()[2]) in _dunbrack[line.split()[0]][int(line.split()[1])]:
+                _dunbrack[line.split()[0]][int(line.split()[1])][int(line.split()[2])] = []
+            _dunbrack[line.split()[0]][int(line.split()[1])][int(line.split()[2])].append({
+                'prob': float(line.split()[8]),
+                'CHI1': float(line.split()[9]),
+                'CHI2': float(line.split()[10]),
+                'CHI3': float(line.split()[11]),
+                'CHI4': float(line.split()[12])
+            })
+    return _dunbrack
+
+
 def rotation_matrix(axis, theta):
     """
     Return the rotation matrix associated with counterclockwise rotation about
@@ -427,256 +681,6 @@ def dihedral_from_vectors(v1, v2, v3, v4):
     x = np.dot(v, w)
     y = np.dot(np.cross(b1, v), w)
     return np.arctan2(y, x)
-
-
-
-class PDB:
-    def __init__(self, input_data):
-        import gzip
-        self.pdb_dct = {}
-        if os.path.isfile(input_data):
-            file_handler = open(input_data)
-        elif os.path.isfile('/dlab/data/PDB/pdb/{}/pdb{}.ent.gz'.format(input_data.lower()[1:3], input_data.lower())):
-            file_handler = gzip.open(
-                '/dlab/data/PDB/pdb/{}/pdb{}.ent.gz'.format(input_data.lower()[1:3], input_data.lower()), 'rt')
-        else:
-            raise FileNotFoundError()
-        for line in file_handler:
-            if line.startswith("ENDMDL"):
-                break
-            if line.startswith("ATOM") or line.startswith("HETATM"):
-                if line[16] not in [" ", "A"]:
-                    continue
-                if line[21] not in self.pdb_dct:
-                    self.pdb_dct[line[21]] = {}
-                if int(line[22:26].strip()) not in self.pdb_dct[line[21]]:
-                    self.pdb_dct[line[21]][int(line[22:26].strip())] = {
-                        'RES': line[17:20],
-                        "CHAIN": line[21],
-                        'ORDER': []
-                    }
-                self.pdb_dct[line[21]][int(line[22:26].strip())][line[12:16].strip()] = np.array(
-                    [float(line[30:38]), float(line[38:46]), float(line[46:54])])
-                self.pdb_dct[line[21]][int(line[22:26].strip())]['ORDER'].append(line[12:16].strip())
-        # Check the PDB, remove partial residues
-        for chain in self.pdb_dct.keys():
-            remove = set()
-            for res_num in self.pdb_dct[chain].keys():
-                if len(self.pdb_dct[chain][res_num]["ORDER"]) < 4:
-                    remove.add(res_num)
-                for i in ['C', 'N', 'CA', 'O']:
-                    if i not in self.pdb_dct[chain][res_num]:
-                        remove.add(res_num)
-            for i in remove:
-                self.pdb_dct[chain].pop(i)
-
-        file_handler.close()
-
-    def parse(self):
-        return self.pdb_dct
-
-    def phi_psi(self, chain, res_num):
-        # # Take care of missing resudies, and heteroatoms
-
-        if res_num - 1 not in self.pdb_dct[chain]:
-            return None, dihedral_from_vectors(self.pdb_dct[chain][res_num]['N'],
-                                               self.pdb_dct[chain][res_num]['CA'],
-                                               self.pdb_dct[chain][res_num]['C'],
-                                               self.pdb_dct[chain][res_num + 1]['N'])
-        elif res_num + 1 not in self.pdb_dct[chain]:
-            return dihedral_from_vectors(self.pdb_dct[chain][res_num - 1]['C'], self.pdb_dct[chain][res_num]['N'],
-                                         self.pdb_dct[chain][res_num]['CA'],
-                                         self.pdb_dct[chain][res_num]['C']), None
-        else:
-
-            return dihedral_from_vectors(self.pdb_dct[chain][res_num - 1]['C'], self.pdb_dct[chain][res_num]['N'],
-                                         self.pdb_dct[chain][res_num]['CA'],
-                                         self.pdb_dct[chain][res_num]['C']), dihedral_from_vectors(
-                self.pdb_dct[chain][res_num]['N'], self.pdb_dct[chain][res_num]['CA'],
-                self.pdb_dct[chain][res_num]['C'], self.pdb_dct[chain][res_num + 1]['N'])
-
-    def introduce_rotamer(self, pdb_object, axis, chi):
-        for i in pdb_object['ORDER'][pdb_object['ORDER'].index(axis[1]) + 1:]:
-            if i == "H":
-                continue
-            yield i, np.dot(rotation_matrix(pdb_object[axis[0]] - pdb_object[axis[1]], chi),
-                            pdb_object[i] - pdb_object[axis[1]]) + pdb_object[axis[1]]
-
-    def mutate(self, chain, mutate_to, res_num, rotamer_lib=None, mutation_type="random"):
-        """
-        Mutates amino acid X at position index to a given residue wigth the respective highest probability rotamer
-        :param res_num: Int, position
-        :param mutate_to: Residue 3 letter AA code
-        :param chain: Chain identifier for the residue
-        :param rotamer_lib: Preloaded rotamer library to speed things up
-        :param mutation_type: How to introduce the rotamer.
-            random: A random rotamer will be used based on the amino acid frequency of the Eukariota proteome
-            first: The rotamer with the highest probability will be used
-            best: The rotamer with the least clashes will be used (in case of a tie 'first' will be used amongst the winners)
-        :return: Mutates the object
-        """
-        if not rotamer_lib:
-            rotamer_lib = load_rotamers()
-        phi, psi = [round(np.rad2deg(x), -1) if x else 0 for x in self.phi_psi(chain, res_num)]
-        # print(phi, psi)
-        coords = self.pdb_dct[chain][res_num]
-        # Do the rigid body transformation
-        sample_residue = RESIDUE_STRUCTUES[mutate_to]
-        starting_points = np.mat([sample_residue["N"], sample_residue["CA"], sample_residue["C"], sample_residue["O"]])
-        end_points = np.mat([coords["N"], coords["CA"], coords["C"], coords["O"]])
-        R, t = rigid_transform_3D(starting_points, end_points)
-        break_atom = coords['ORDER'][
-            max([idx for idx, atom in enumerate(coords['ORDER']) if atom in ['C', 'N', "CA", "O"]])]
-        for i in coords['ORDER'][coords['ORDER'].index(break_atom) + 1:]:
-            coords.pop(i)
-
-        break_atom = "CB"
-        if mutate_to != "GLY":
-            # Do the rigid body transformation
-            for i in RESIDUE_ORDER[mutate_to][RESIDUE_ORDER[mutate_to].index(break_atom):]:
-                coords[i] = np.squeeze(np.asarray(np.dot(R, sample_residue[i]) + t.T))
-
-        coords['ORDER'] = RESIDUE_ORDER[mutate_to]
-        coords['RES'] = mutate_to
-        if mutate_to in ["ALA", "GLY"]:
-            self.pdb_dct[chain][res_num] = coords
-            return
-        if mutation_type == 'first':
-            selected_rotamer = sorted(rotamer_lib[mutate_to][phi][psi], key=lambda x: x['prob'], reverse=True)[0]
-        elif mutation_type == 'random':
-            p = np.array([x['prob'] for x in rotamer_lib[mutate_to][phi][psi]])
-            p /= p.sum()
-            selected_rotamer = np.random.choice(rotamer_lib[mutate_to][phi][psi], p=p)
-        elif mutation_type == 'best':
-            selected_rotamer = self.select_best_rotemer_based_on_clashes(chain, coords, rotamer_lib[mutate_to][phi][psi])
-        else:
-            raise ValueError("Mutation type '{}' not valid".format(mutation_type))
-        # Introduce the rotamer
-        for angle in ['CHI1', 'CHI2', 'CHI3', 'CHI4']:
-            if mutate_to not in CHI_ANGLES[angle]:
-                continue
-
-            dihedral_start = dihedral_from_vectors(
-                *[coords[x] for x in CHI_ANGLES[angle][mutate_to]['ref_plane']])
-            rotation_angle = dihedral_start - np.deg2rad(selected_rotamer[angle])
-            for i in self.introduce_rotamer(coords, CHI_ANGLES[angle][mutate_to]['axis'],
-                                       rotation_angle):
-                coords[i[0]] = i[1]
-
-        self.pdb_dct[chain][res_num] = coords
-
-    def generate_all_rotamers(self, chain, mutate_to, res_num, rotamer_lib=None):
-        """
-        Mutates amino acid X at position index to a given residue wigth the respective highest probability rotamer
-        :param res_num: Int, position
-        :param mutate_to: Residue 3 letter AA code
-        :param chain: Chain identifier for the residue
-        :param rotamer_lib: Preloaded rotamer library to speed things up
-        :param mutation_type: How to introduce the rotamer.
-            random: A random rotamer will be used based on the amino acid frequency of the Eukariota proteome
-            first: The rotamer with the highest probability will be used
-            best: The rotamer with the least clashes will be used (in case of a tie 'first' will be used amongst the winners)
-        :return: Mutates the object
-        """
-        if not rotamer_lib:
-            rotamer_lib = load_rotamers()
-        phi, psi = [round(np.rad2deg(x), -1) if x else 0 for x in self.phi_psi(chain, res_num)]
-        # print(phi, psi)
-        coords = self.pdb_dct[chain][res_num]
-        # Do the rigid body transformation
-        sample_residue = RESIDUE_STRUCTUES[mutate_to]
-        starting_points = np.mat([sample_residue["N"], sample_residue["CA"], sample_residue["C"], sample_residue["O"]])
-        end_points = np.mat([coords["N"], coords["CA"], coords["C"], coords["O"]])
-        R, t = rigid_transform_3D(starting_points, end_points)
-        break_atom = coords['ORDER'][
-            max([idx for idx, atom in enumerate(coords['ORDER']) if atom in ['C', 'N', "CA", "O"]])]
-        for i in coords['ORDER'][coords['ORDER'].index(break_atom) + 1:]:
-            coords.pop(i)
-
-        break_atom = "CB"
-        if mutate_to != "GLY":
-            # Do the rigid body transformation
-            for i in RESIDUE_ORDER[mutate_to][RESIDUE_ORDER[mutate_to].index(break_atom):]:
-                coords[i] = np.squeeze(np.asarray(np.dot(R, sample_residue[i]) + t.T))
-
-        coords['ORDER'] = RESIDUE_ORDER[mutate_to]
-        coords['RES'] = mutate_to
-        if mutate_to in ["ALA", "GLY"]:
-            self.pdb_dct[chain][res_num] = coords
-            yield {'prob': 1}
-            return
-
-        for selected_rotamer in rotamer_lib[mutate_to][phi][psi]:
-            # Introduce the rotamer
-            for angle in ['CHI1', 'CHI2', 'CHI3', 'CHI4']:
-                if mutate_to not in CHI_ANGLES[angle]:
-                    continue
-
-                dihedral_start = dihedral_from_vectors(
-                    *[coords[x] for x in CHI_ANGLES[angle][mutate_to]['ref_plane']])
-                rotation_angle = dihedral_start - np.deg2rad(selected_rotamer[angle])
-                for i in self.introduce_rotamer(coords, CHI_ANGLES[angle][mutate_to]['axis'],
-                                           rotation_angle):
-                    coords[i[0]] = i[1]
-
-            self.pdb_dct[chain][res_num] = coords
-            yield selected_rotamer
-
-    def select_best_rotemer_based_on_clashes(self, chain, coords, rotamers):
-        skip = ['RES', 'CHAIN', 'ORDER']
-        best_rotamer = None
-        lowest_energy = float('inf')
-        for rotamer in rotamers:
-            vdw_energy = 0
-            for angle in ['CHI1', 'CHI2', 'CHI3', 'CHI4']:
-                if coords['RES'] not in CHI_ANGLES[angle]:
-                    continue
-
-                dihedral_start = dihedral_from_vectors(
-                    *[coords[x] for x in CHI_ANGLES[angle][coords['RES']]['ref_plane']])
-                rotation_angle = dihedral_start - np.deg2rad(rotamer[angle])
-                for i in self.introduce_rotamer(coords, CHI_ANGLES[angle][coords['RES']]['axis'],
-                                                rotation_angle):
-                    coords[i[0]] = i[1]
-
-            for rotamer_atom, rotamer_vector in coords.items():
-                if rotamer_atom in skip:
-                    continue
-                for pdb_chain, residues in self.pdb_dct.items():
-                    if pdb_chain == chain:
-                        continue
-                    for residue, atoms in residues.items():
-                        for atom, vector in atoms.items():
-                            if atom in skip:
-                                continue
-                            # print(atom, vector)
-                            dist = self.distance(rotamer_vector, vector)
-                            if dist > 6:
-                                continue
-                            try:
-                                vdw_radi = VW_RADII[atoms['RES']][atom] + VW_RADII[coords['RES']][rotamer_atom]
-                            except KeyError:
-                                continue
-                            vdw_energy += ((vdw_radi/dist)**12 - (vdw_radi/dist)**6)
-
-            if vdw_energy < lowest_energy:
-                lowest_energy = vdw_energy
-                best_rotamer = rotamer
-        return best_rotamer
-
-    def distance(self, x, y):
-        return np.sqrt((x[0] - y[0])**2 + (x[1] - y[1])**2 + (x[2] - y[2])**2)
-
-    def dump(self, file_name):
-        with open(file_name, "w") as fn:
-            atom_idx = 1
-            for i, j in sorted(self.pdb_dct.items()):
-                for idx, res in sorted(j.items()):
-                    for atom in res['ORDER']:
-                        fn.write("{:<6}{:>5}  {:<4}{} {}{:>4}{:>12.3f}{:>8.3f}{:>8.3f}{:>6.2f}{:>6.2f}{:>12}\n".format(
-                            'ATOM', atom_idx, atom, res['RES'], i, idx, res[atom][0], res[atom][1], res[atom][2], 1, 1,
-                            atom[0]))
-                        atom_idx += 1
 
 
 def rigid_transform_3D(A, B):
