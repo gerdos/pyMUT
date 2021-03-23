@@ -49,6 +49,8 @@ N and C terminal residues should be omitted, as the PHI and PSI andles are not d
 
 ### References, licenses
 
+This project is licensed under the terms of the MIT license.
+
 The rotamer library is based on the following article: 
 
 A Smoothed Backbone-Dependent Rotamer Library for Proteins Derived from Adaptive Kernel Density Estimates and Regressions  *Maxim V. Shapovalov Roland L. Dunbrack Jr.*
