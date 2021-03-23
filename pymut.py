@@ -1,22 +1,19 @@
 import numpy as np
 import os
+import sys
 
 
 class PDB:
     def __init__(self, input_data):
-        import gzip
         self.pdb_dct = {}
-        if os.path.isfile(input_data):
-            file_handler = open(input_data)
-        elif os.path.isfile('/dlab/data/PDB/pdb/{}/pdb{}.ent.gz'.format(input_data.lower()[1:3], input_data.lower())):
-            file_handler = gzip.open(
-                '/dlab/data/PDB/pdb/{}/pdb{}.ent.gz'.format(input_data.lower()[1:3], input_data.lower()), 'rt')
-        else:
+        self.hetatom_data = ""
+        if not os.path.isfile(input_data):
             raise FileNotFoundError()
+        file_handler = open(input_data)
         for line in file_handler:
             if line.startswith("ENDMDL"):
                 break
-            if line.startswith("ATOM") or line.startswith("HETATM"):
+            if line.startswith("ATOM"):
                 if line[16] not in [" ", "A"]:
                     continue
                 if line[21] not in self.pdb_dct:
@@ -30,6 +27,8 @@ class PDB:
                 self.pdb_dct[line[21]][int(line[22:26].strip())][line[12:16].strip()] = np.array(
                     [float(line[30:38]), float(line[38:46]), float(line[46:54])])
                 self.pdb_dct[line[21]][int(line[22:26].strip())]['ORDER'].append(line[12:16].strip())
+            elif line.startswith("HETATM"):
+                self.hetatom_data += line
         # Check the PDB, remove partial residues
         for chain in self.pdb_dct.keys():
             remove = set()
@@ -40,6 +39,7 @@ class PDB:
                     if i not in self.pdb_dct[chain][res_num]:
                         remove.add(res_num)
             for i in remove:
+                sys.stderr.write("Partially complete residue residue in chain {} at position {}".format(chain, i))
                 self.pdb_dct[chain].pop(i)
 
         file_handler.close()
@@ -48,8 +48,6 @@ class PDB:
         return self.pdb_dct
 
     def phi_psi(self, chain, res_num):
-        # # Take care of missing resudies, and heteroatoms
-
         if res_num - 1 not in self.pdb_dct[chain]:
             return None, dihedral_from_vectors(self.pdb_dct[chain][res_num]['N'],
                                                self.pdb_dct[chain][res_num]['CA'],
@@ -60,7 +58,6 @@ class PDB:
                                          self.pdb_dct[chain][res_num]['CA'],
                                          self.pdb_dct[chain][res_num]['C']), None
         else:
-
             return dihedral_from_vectors(self.pdb_dct[chain][res_num - 1]['C'], self.pdb_dct[chain][res_num]['N'],
                                          self.pdb_dct[chain][res_num]['CA'],
                                          self.pdb_dct[chain][res_num]['C']), dihedral_from_vectors(
@@ -76,7 +73,7 @@ class PDB:
 
     def mutate(self, chain, mutate_to, res_num, rotamer_lib=None, mutation_type="best"):
         """
-        Mutates amino acid X at position index to a given residue wigth the respective highest probability rotamer
+        Mutates amino acid X at position index to a given residue with the respective highest probability rotamer
         :param res_num: Int, position
         :param mutate_to: Residue 3 letter AA code
         :param chain: Chain identifier for the residue
@@ -109,7 +106,7 @@ class PDB:
             for i in RESIDUE_ORDER[mutate_to][RESIDUE_ORDER[mutate_to].index(break_atom):]:
                 coords[i] = np.squeeze(np.asarray(np.dot(R, sample_residue[i]) + t.T))
         if vector_distance(original_cb, coords['CB']) > 0.5:
-            print(
+            sys.stderr.write(
                 'RMSD of the transofrmed CB atom is more than 0.5A, which indicates some problem with the rigid body transformation')
         coords['ORDER'] = RESIDUE_ORDER[mutate_to]
         coords['RES'] = mutate_to
@@ -254,6 +251,7 @@ class PDB:
                             'ATOM', atom_idx, atom, res['RES'], i, idx, res[atom][0], res[atom][1], res[atom][2], 1, 1,
                             atom[0]))
                         atom_idx += 1
+            fn.write(self.hetatom_data)
 
 
 CHI_ANGLES = {"CHI1": {'CYS': {'axis': ['CA', 'CB'], 'ref_plane': ['N', 'CA', 'CB', 'SG']},
