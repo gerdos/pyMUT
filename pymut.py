@@ -1,9 +1,6 @@
 import numpy as np
 import os
 
-class Atom:
-    def __init__(self, ):
-
 
 class PDB:
     def __init__(self, input_data):
@@ -77,7 +74,7 @@ class PDB:
             yield i, np.dot(rotation_matrix(pdb_object[axis[0]] - pdb_object[axis[1]], chi),
                             pdb_object[i] - pdb_object[axis[1]]) + pdb_object[axis[1]]
 
-    def mutate(self, chain, mutate_to, res_num, rotamer_lib=None, mutation_type="random"):
+    def mutate(self, chain, mutate_to, res_num, rotamer_lib=None, mutation_type="best"):
         """
         Mutates amino acid X at position index to a given residue wigth the respective highest probability rotamer
         :param res_num: Int, position
@@ -95,22 +92,25 @@ class PDB:
         phi, psi = [round(np.rad2deg(x), -1) if x else 0 for x in self.phi_psi(chain, res_num)]
         # print(phi, psi)
         coords = self.pdb_dct[chain][res_num]
+
         # Do the rigid body transformation
         sample_residue = RESIDUE_STRUCTUES[mutate_to]
-        starting_points = np.mat([sample_residue["N"], sample_residue["CA"], sample_residue["C"], sample_residue["O"]])
-        end_points = np.mat([coords["N"], coords["CA"], coords["C"], coords["O"]])
+        starting_points = np.mat([sample_residue["N"], sample_residue["CA"], sample_residue["C"]])
+        end_points = np.mat([coords["N"], coords["CA"], coords["C"]])
         R, t = rigid_transform_3D(starting_points, end_points)
+        original_cb = coords['CB']
         break_atom = coords['ORDER'][
             max([idx for idx, atom in enumerate(coords['ORDER']) if atom in ['C', 'N', "CA", "O"]])]
         for i in coords['ORDER'][coords['ORDER'].index(break_atom) + 1:]:
             coords.pop(i)
-
         break_atom = "CB"
         if mutate_to != "GLY":
             # Do the rigid body transformation
             for i in RESIDUE_ORDER[mutate_to][RESIDUE_ORDER[mutate_to].index(break_atom):]:
                 coords[i] = np.squeeze(np.asarray(np.dot(R, sample_residue[i]) + t.T))
-
+        if vector_distance(original_cb, coords['CB']) > 0.5:
+            print(
+                'RMSD of the transofrmed CB atom is more than 0.5A, which indicates some problem with the rigid body transformation')
         coords['ORDER'] = RESIDUE_ORDER[mutate_to]
         coords['RES'] = mutate_to
         if mutate_to in ["ALA", "GLY"]:
@@ -123,7 +123,8 @@ class PDB:
             p /= p.sum()
             selected_rotamer = np.random.choice(rotamer_lib[mutate_to][phi][psi], p=p)
         elif mutation_type == 'best':
-            selected_rotamer = self.select_best_rotemer_based_on_clashes(chain, coords, rotamer_lib[mutate_to][phi][psi])
+            selected_rotamer = self.select_best_rotemer_based_on_clashes(chain, coords,
+                                                                         rotamer_lib[mutate_to][phi][psi])
         else:
             raise ValueError("Mutation type '{}' not valid".format(mutation_type))
         # Introduce the rotamer
@@ -135,7 +136,8 @@ class PDB:
                 *[coords[x] for x in CHI_ANGLES[angle][mutate_to]['ref_plane']])
             rotation_angle = dihedral_start - np.deg2rad(selected_rotamer[angle])
             for i in self.introduce_rotamer(coords, CHI_ANGLES[angle][mutate_to]['axis'],
-                                       rotation_angle):
+                                            rotation_angle):
+                # print(i[0], i[1])
                 coords[i[0]] = i[1]
 
         self.pdb_dct[chain][res_num] = coords
@@ -191,7 +193,7 @@ class PDB:
                     *[coords[x] for x in CHI_ANGLES[angle][mutate_to]['ref_plane']])
                 rotation_angle = dihedral_start - np.deg2rad(selected_rotamer[angle])
                 for i in self.introduce_rotamer(coords, CHI_ANGLES[angle][mutate_to]['axis'],
-                                           rotation_angle):
+                                                rotation_angle):
                     coords[i[0]] = i[1]
 
             self.pdb_dct[chain][res_num] = coords
@@ -232,7 +234,7 @@ class PDB:
                                 vdw_radi = VW_RADII[atoms['RES']][atom] + VW_RADII[coords['RES']][rotamer_atom]
                             except KeyError:
                                 continue
-                            vdw_energy += ((vdw_radi/dist)**12 - (vdw_radi/dist)**6)
+                            vdw_energy += ((vdw_radi / dist) ** 12 - (vdw_radi / dist) ** 6)
 
             if vdw_energy < lowest_energy:
                 lowest_energy = vdw_energy
@@ -240,7 +242,7 @@ class PDB:
         return best_rotamer
 
     def distance(self, x, y):
-        return np.sqrt((x[0] - y[0])**2 + (x[1] - y[1])**2 + (x[2] - y[2])**2)
+        return np.sqrt((x[0] - y[0]) ** 2 + (x[1] - y[1]) ** 2 + (x[2] - y[2]) ** 2)
 
     def dump(self, file_name):
         with open(file_name, "w") as fn:
@@ -252,7 +254,6 @@ class PDB:
                             'ATOM', atom_idx, atom, res['RES'], i, idx, res[atom][0], res[atom][1], res[atom][2], 1, 1,
                             atom[0]))
                         atom_idx += 1
-
 
 
 CHI_ANGLES = {"CHI1": {'CYS': {'axis': ['CA', 'CB'], 'ref_plane': ['N', 'CA', 'CB', 'SG']},
@@ -305,7 +306,6 @@ CHI_ANGLES = {"CHI1": {'CYS': {'axis': ['CA', 'CB'], 'ref_plane': ['N', 'CA', 'C
 CHI5 = {
     'ARG': {'axis': ['NE', 'CZ'], 'ref_plane': ['CD', 'NE', 'CZ', 'NH1']},
 }
-
 
 RESIDUE_ORDER = {'CYS': ['N', 'CA', 'C', 'O', 'CB', 'SG'],
                  'ASP': ['N', 'CA', 'C', 'O', 'CB', 'CG', 'OD1', 'OD2'],
@@ -627,6 +627,7 @@ VW_RADII = {
     }
 }
 
+
 def load_rotamers(rotamer_loc="rotamers.lib"):
     _dunbrack = {}
     with open(rotamer_loc) as fn:
@@ -656,6 +657,7 @@ def rotation_matrix(axis, theta):
     """
     from scipy.linalg import expm, norm
     return expm(np.cross(np.eye(3), axis / norm(axis) * theta))
+
 
 def dihedral_from_vectors(v1, v2, v3, v4):
     """Praxeolitic formula
@@ -711,3 +713,15 @@ def rigid_transform_3D(A, B):
 
     t = -R * centroid_A.T + centroid_B.T
     return R, t
+
+
+def vector_distance(x, y):
+    return np.sqrt((x[0] - y[0]) ** 2 + (x[1] - y[1]) ** 2 + (x[2] - y[2]) ** 2)
+
+
+def vencot_length(v):
+    return np.sqrt(np.dot(v, v))
+
+
+def vector_angle(v1, v2):
+    return np.arccos(np.dot(v1, v2) / (vencot_length(v1) * vencot_length(v2)))
