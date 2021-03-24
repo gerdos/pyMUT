@@ -1,5 +1,5 @@
 ---
-title: 'Gala: A Python package for galactic dynamics' tags:
+title: 'PyMut: A rotamer based mutation library implemented in Python' tags:
 
 - Python
 - biology
@@ -11,8 +11,9 @@ title: 'Gala: A Python package for galactic dynamics' tags:
 # Summary
 
 Mutations are the essential driving force of evolutions as well as the basis of critical diseases. PyMut is a
-method to introduce mutations computationally into PBDs, the most used three-dimensional protein structures files. PyMUT
-uses the 2010 Dunbrack rotamer library [REF], which is a collection of the most likely orientations a residue can be
+method to introduce mutations based on rotamers computationally into PBDs, the most used three-dimensional protein structures files. 
+Introduction of rotamers has been shown to be an effective way to study mutations [@pmid9311930; @pmid2441069].
+PyMUT uses the 2010 Dunbrack rotamer library [@pmid21645855], which is a collection of the most likely orientations a residue can be
 found in biological systems.
 
 PyMut features multiple options to select the desired rotamer, as the highest probability rotamer is often not the
@@ -25,63 +26,57 @@ one dependency - the numpy library - which is one of the most used external pyth
 
 # Statement of need
 
-`Gala` is an Astropy-affiliated Python package for galactic dynamics. Python enables wrapping low-level languages (e.g.,
-C) for speed without losing flexibility or ease-of-use in the user-interface. The API for `Gala` was designed to provide
-a class-based and user-friendly interface to fast (C or Cython-optimized) implementations of common operations such as
-gravitational potential and force evaluation, orbit integration, dynamical transformations, and chaos indicators for
-nonlinear dynamics. `Gala` also relies heavily on and interfaces well with the implementations of physical units and
-astronomical coordinate systems in the `Astropy` package [@astropy] (`astropy.units` and
-`astropy.coordinates`).
+To study of mutations is an everlasting need in the field of molecular biology, and the increasing cost of laboratory 
+techniques alongside with the wast improvements in the filed of informatics lead to the development of bioinformatic 
+tools to introduce mutations computationally. Most of state of the art tools available try to introduce mutations 
+based on complex energy minimization techniques to achieve the theoretical best solution. This often leads to slow 
+calculations, and hinders the use of the tool for large scale studies. 
 
-`Gala` was designed to be used by both astronomical researchers and by students in courses on gravitational dynamics or
-astronomy. It has already been used in a number of scientific publications [@Pearson:2017] and has also been used in
-graduate courses on Galactic dynamics to, e.g., provide interactive visualizations of textbook material [@Binney:2008].
-The combination of speed, design, and support for Astropy functionality in `Gala` will enable exciting scientific
-explorations of forthcoming data releases from the *Gaia* mission
-[@gaia] by students and experts alike.
+PyMut incorporates a more general approach by intorducing rotamers and leaving the backbone unchanged. This leads to less 
+accurate but immensely faster running time. Applications of PyMut might include the study of simple point mutations,
+stereo-chemical properties, but most importantly large scale studies such as alanine scanning of long peptides, or rough 
+force-field generations where millions upon millions of rotamers are required.  
 
 # Description
 
+When a mutation is selected PyMut selected the desired residue from a library that consists of unit vectors of atomic 
+positions for the selected amino acid derived from experimentally solved low resolution PDB structures from the
+Protein Data Bank [@pmid10592235]. Afterwards this residue is mapped to the backbone of the selected position inside the protein 
+using rigid body transformation. To obtain the rotational and translational component most efficiently PyMut uses 
+the singular value decomposition of the covariance matrix of the centroid coordinates.
+
+After the selected residue has been placed, PyMut transforms its atomic coordinates based on the selected rotamer. 
+The desired rotamer can be selected from a handful of rotamers that mach the torsion angles of the selected residue
+by an optional argument. The three options accepted are 'first', 'random' and 'best'.
+
+  * `'first'` selects the rotamer with the highest probability in the library. Rotamers in the library have assigned 
+    probabilities based on their occurrence in biological systems in respect to the given torsion angles of the residue
+  * `'random'` selects a random rotamer from the library based on the probability distribution of the matching torsion 
+    angle rotamers inside the library
+  * `'best'` the best option tries to guess which rotamer fits best, based on the relative Van deer Waals energy it would 
+    obtain from the residues in close proximity (<6 A). This method is relatively slower compared to the other two 
+    options, as it checks all possible rotamers
+    
+The selected rotamer is applied by rotating the atoms hierarchically cased on their respective CHI angles and rotation 
+axes.
+
 # Examples
 
-# Mathematics
+PyMut is supplied with three examples. The first is a simple introduction of a TYR residue to the 44th position of the 
+A chain of the LC8 protein (PDB ID: 5e0m). Generaly it is always a good idea to preload the rotamer library and supply 
+PyMuts function with it, so it does not need to load it for each mutation. 
 
-Single dollars ($) are required for inline mathematics e.g. $f(x) = e^{\pi/x}$
+The second example generates an alanine scan for the peptide in the aforementioned PDB. PLease note, that the 
+object created by PyMut is mutable, so a deep copy is created for each example. 
 
-Double dollars make self-standing equations:
+The third example creates all the possible conformations a tyrosine might take in the 44th position of the A chain in 5e0m.
 
-$$\Theta(x) = \left\{\begin{array}{l} 0\textrm{ if } x < 0\cr 1\textrm{ else} \end{array}\right.$$
+![All possible tyrosine confrmations](assets/tyr_rotamers.png)
 
-You can also use plain \LaTeX for equations \begin{equation}\label{eq:fourier} \hat f(\omega) = \int_{-\infty}^{\infty}
-f(x) e^{i\omega x} dx \end{equation} and refer to \autoref{eq:fourier} from text.
-
-# Citations
-
-Citations to entries in paper.bib should be in
-[rMarkdown](http://rmarkdown.rstudio.com/authoring_bibliographies_and_citations.html)
-format.
-
-If you want to cite a software repository URL (e.g. something on GitHub without a preferred citation) then you can do it
-with the example BibTeX entry below for @fidgit.
-
-For a quick reference, the following citation commands can be used:
-
-- `@author:2001`  ->  "Author et al. (2001)"
-- `[@author:2001]` -> "(Author et al., 2001)"
-- `[@author1:2001; @author2:2001]` -> "(Author1 et al., 2001; Author2 et al., 2002)"
-
-# Figures
-
-Figures can be included like this:
-![Caption for example figure.\label{fig:example}](figure.png)
-and referenced from text using \autoref{fig:example}.
-
-Figure sizes can be customized by adding an optional second parameter:
-![Caption for example figure.](figure.png){ width=20% }
 
 # Acknowledgements
 
-We acknowledge contributions from Brigitta Sipocz, Syrtis Major, and Semyeong Oh, and support from Kathryn Johnston
-during the genesis of this project.
+I acknowledge contributions from Zsuzsanna Dosztanyi and my collegues from the Department of Biochemistry, 
+Eötvös Loránd University.
 
 # References

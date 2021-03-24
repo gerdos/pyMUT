@@ -1,6 +1,9 @@
 import numpy as np
 import os
 import sys
+import copy
+
+DATA_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'data')
 
 
 class PDB:
@@ -46,6 +49,9 @@ class PDB:
 
     def parse(self):
         return self.pdb_dct
+
+    def copy(self):
+        return copy.deepcopy(self)
 
     def phi_psi(self, chain, res_num):
         if res_num - 1 not in self.pdb_dct[chain]:
@@ -159,8 +165,8 @@ class PDB:
         coords = self.pdb_dct[chain][res_num]
         # Do the rigid body transformation
         sample_residue = RESIDUE_STRUCTUES[mutate_to]
-        starting_points = np.mat([sample_residue["N"], sample_residue["CA"], sample_residue["C"], sample_residue["O"]])
-        end_points = np.mat([coords["N"], coords["CA"], coords["C"], coords["O"]])
+        starting_points = np.mat([sample_residue["N"], sample_residue["CA"], sample_residue["C"]])
+        end_points = np.mat([coords["N"], coords["CA"], coords["C"]])
         R, t = rigid_transform_3D(starting_points, end_points)
         break_atom = coords['ORDER'][
             max([idx for idx, atom in enumerate(coords['ORDER']) if atom in ['C', 'N', "CA", "O"]])]
@@ -194,7 +200,7 @@ class PDB:
                     coords[i[0]] = i[1]
 
             self.pdb_dct[chain][res_num] = coords
-            yield selected_rotamer
+            yield self
 
     def select_best_rotemer_based_on_clashes(self, chain, coords, rotamers):
         skip = ['RES', 'CHAIN', 'ORDER']
@@ -252,6 +258,104 @@ class PDB:
                             atom[0]))
                         atom_idx += 1
             fn.write(self.hetatom_data)
+
+def load_rotamers(rotamer_loc="{}/rotamers.lib".format(DATA_DIR)):
+    _dunbrack = {}
+    with open(rotamer_loc) as fn:
+        for line in fn:
+            if line.startswith("#"):
+                continue
+            if not line.split()[0] in _dunbrack:
+                _dunbrack[line.split()[0]] = {}
+            if not int(line.split()[1]) in _dunbrack[line.split()[0]]:
+                _dunbrack[line.split()[0]][int(line.split()[1])] = {}
+            if not int(line.split()[2]) in _dunbrack[line.split()[0]][int(line.split()[1])]:
+                _dunbrack[line.split()[0]][int(line.split()[1])][int(line.split()[2])] = []
+            _dunbrack[line.split()[0]][int(line.split()[1])][int(line.split()[2])].append({
+                'prob': float(line.split()[8]),
+                'CHI1': float(line.split()[9]),
+                'CHI2': float(line.split()[10]),
+                'CHI3': float(line.split()[11]),
+                'CHI4': float(line.split()[12])
+            })
+    return _dunbrack
+
+
+def rotation_matrix(axis, theta):
+    """
+    Return the rotation matrix associated with counterclockwise rotation about
+    the given axis by theta radians.
+    """
+    from scipy.linalg import expm, norm
+    return expm(np.cross(np.eye(3), axis / norm(axis) * theta))
+
+
+def dihedral_from_vectors(v1, v2, v3, v4):
+    """Praxeolitic formula
+    1 sqrt, 1 cross product"""
+    b0 = -1.0 * (v2 - v1)
+    b1 = v3 - v2
+    b2 = v4 - v3
+
+    # normalize b1 so that it does not influence magnitude of vector
+    # rejections that come next
+    b1 /= np.linalg.norm(b1)
+
+    # vector rejections
+    # v = projection of b0 onto plane perpendicular to b1
+    #   = b0 minus component that aligns with b1
+    # w = projection of b2 onto plane perpendicular to b1
+    #   = b2 minus component that aligns with b1
+    v = b0 - np.dot(b0, b1) * b1
+    w = b2 - np.dot(b2, b1) * b1
+
+    # angle between v and w in a plane is the torsion angle
+    # v and w may not be normalized but that's fine since tan is y/x
+    x = np.dot(v, w)
+    y = np.dot(np.cross(b1, v), w)
+    return np.arctan2(y, x)
+
+
+def rigid_transform_3D(A, B):
+    """
+    Calculates the transformation that A --> B in the form of B = R*A+t where R is the rotation and t is the translation
+    :param A: Set of points in thrre dimensions
+    :param B: Set of points in three dimensions
+    :return: R, t
+    """
+    assert len(A) == len(B)
+    dim_a = A.shape[0]
+    centroid_A = np.mean(A, axis=0)
+    centroid_B = np.mean(B, axis=0)
+
+    # centre the points
+    a_centered = A - np.tile(centroid_A, (dim_a, 1))
+    b_centered = B - np.tile(centroid_B, (dim_a, 1))
+
+    # Get rotation from covariance
+    cov_ab = np.transpose(a_centered) * b_centered
+    U, S, Vt = np.linalg.svd(cov_ab)
+    R = Vt.T * U.T
+
+    # Reflexion
+    if np.linalg.det(R) < 0:
+        Vt[2, :] *= -1
+        R = Vt.T * U.T
+
+    t = -R * centroid_A.T + centroid_B.T
+    return R, t
+
+
+def vector_distance(x, y):
+    return np.sqrt((x[0] - y[0]) ** 2 + (x[1] - y[1]) ** 2 + (x[2] - y[2]) ** 2)
+
+
+def vector_length(v):
+    return np.sqrt(np.dot(v, v))
+
+
+def vector_angle(v1, v2):
+    return np.arccos(np.dot(v1, v2) / (vector_length(v1) * vector_length(v2)))
 
 
 CHI_ANGLES = {"CHI1": {'CYS': {'axis': ['CA', 'CB'], 'ref_plane': ['N', 'CA', 'CB', 'SG']},
@@ -624,102 +728,3 @@ VW_RADII = {
         "OH": 1.6
     }
 }
-
-
-def load_rotamers(rotamer_loc="rotamers.lib"):
-    _dunbrack = {}
-    with open(rotamer_loc) as fn:
-        for line in fn:
-            if line.startswith("#"):
-                continue
-            if not line.split()[0] in _dunbrack:
-                _dunbrack[line.split()[0]] = {}
-            if not int(line.split()[1]) in _dunbrack[line.split()[0]]:
-                _dunbrack[line.split()[0]][int(line.split()[1])] = {}
-            if not int(line.split()[2]) in _dunbrack[line.split()[0]][int(line.split()[1])]:
-                _dunbrack[line.split()[0]][int(line.split()[1])][int(line.split()[2])] = []
-            _dunbrack[line.split()[0]][int(line.split()[1])][int(line.split()[2])].append({
-                'prob': float(line.split()[8]),
-                'CHI1': float(line.split()[9]),
-                'CHI2': float(line.split()[10]),
-                'CHI3': float(line.split()[11]),
-                'CHI4': float(line.split()[12])
-            })
-    return _dunbrack
-
-
-def rotation_matrix(axis, theta):
-    """
-    Return the rotation matrix associated with counterclockwise rotation about
-    the given axis by theta radians.
-    """
-    from scipy.linalg import expm, norm
-    return expm(np.cross(np.eye(3), axis / norm(axis) * theta))
-
-
-def dihedral_from_vectors(v1, v2, v3, v4):
-    """Praxeolitic formula
-    1 sqrt, 1 cross product"""
-    b0 = -1.0 * (v2 - v1)
-    b1 = v3 - v2
-    b2 = v4 - v3
-
-    # normalize b1 so that it does not influence magnitude of vector
-    # rejections that come next
-    b1 /= np.linalg.norm(b1)
-
-    # vector rejections
-    # v = projection of b0 onto plane perpendicular to b1
-    #   = b0 minus component that aligns with b1
-    # w = projection of b2 onto plane perpendicular to b1
-    #   = b2 minus component that aligns with b1
-    v = b0 - np.dot(b0, b1) * b1
-    w = b2 - np.dot(b2, b1) * b1
-
-    # angle between v and w in a plane is the torsion angle
-    # v and w may not be normalized but that's fine since tan is y/x
-    x = np.dot(v, w)
-    y = np.dot(np.cross(b1, v), w)
-    return np.arctan2(y, x)
-
-
-def rigid_transform_3D(A, B):
-    """
-    Calculates the transformation that A --> B in the form of B = R*A+t where R is the rotation and t is the translation
-    :param A: Set of points in thrre dimensions
-    :param B: Set of points in three dimensions
-    :return: R, t
-    """
-    assert len(A) == len(B)
-    N = A.shape[0]
-    centroid_A = np.mean(A, axis=0)
-    centroid_B = np.mean(B, axis=0)
-
-    # centre the points
-    AA = A - np.tile(centroid_A, (N, 1))
-    BB = B - np.tile(centroid_B, (N, 1))
-
-    # dot is matrix multiplication for array
-    H = np.transpose(AA) * BB
-    U, S, Vt = np.linalg.svd(H)
-    R = Vt.T * U.T
-
-    # special reflection case
-    if np.linalg.det(R) < 0:
-        Vt[2, :] *= -1
-        R = Vt.T * U.T
-
-    t = -R * centroid_A.T + centroid_B.T
-    return R, t
-
-
-def vector_distance(x, y):
-    return np.sqrt((x[0] - y[0]) ** 2 + (x[1] - y[1]) ** 2 + (x[2] - y[2]) ** 2)
-
-
-def vencot_length(v):
-    return np.sqrt(np.dot(v, v))
-
-
-def vector_angle(v1, v2):
-    return np.arccos(np.dot(v1, v2) / (vencot_length(v1) * vencot_length(v2)))
