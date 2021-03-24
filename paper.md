@@ -1,8 +1,8 @@
 ---
-title: 'Gala: A Python package for galactic dynamics'
+title: 'PyMut: A rotamer based mutation library implemented in Python'
 tags:
   - Python
-  - astronomy
+  - biology
   - dynamics
   - galactic dynamics
   - milky way
