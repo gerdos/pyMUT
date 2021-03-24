@@ -5,8 +5,10 @@ title: 'PyMut: A rotamer based mutation library implemented in Python' tags:
 - biology
 - bioinformatics authors:
 - name: Erdős Gábor orcid: 0000-0001-6218-5192 affiliation: 1 affiliations:
-- name: Department of Biochemistry, Eötvös Loránd University, Pázmány Péter stny 1/c, Budapest H-1117, Hungary. index: 1
-  date: 23 March 2021 bibliography: paper.bib
+- name: Department of Biochemistry, Eötvös Loránd University, Pázmány Péter stny 1/c, Budapest H-1117, Hungary. index: 1 
+  
+date: 24 March 2021
+bibliography: paper.bib
 ---
 
 # Summary
