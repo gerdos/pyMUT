@@ -142,7 +142,6 @@ class PDB:
                                             rotation_angle):
                 # print(i[0], i[1])
                 coords[i[0]] = i[1]
-
         self.pdb_dct[chain][res_num] = coords
 
     def generate_all_rotamers(self, chain, mutate_to, res_num, rotamer_lib=None):
