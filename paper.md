@@ -3,9 +3,8 @@ title: 'PyMut: A rotamer based mutation library implemented in Python'
 tags:
   - Python
   - biology
-  - dynamics
-  - galactic dynamics
-  - milky way
+  - bioinformatics
+  - molecular biology
 authors:
   - name: Adrian M. Price-Whelan^[Custom footnotes for e.g. denoting who the corresponding author is can be included like this.]
     orcid: 0000-0003-0872-7098
