@@ -7,6 +7,7 @@ title: 'PyMut: A rotamer based mutation library implemented in Python' tags:
 - name: Erdős Gábor orcid: 0000-0001-6218-5192 affiliation: 1 affiliations:
 - name: Department of Biochemistry, Eötvös Loránd University, Pázmány Péter stny 1/c, Budapest H-1117, Hungary. index: 1
   date: 23 March 2021 bibliography: paper.bib
+---
 
 # Summary
 
@@ -73,7 +74,7 @@ created by PyMut is mutable, so a deep copy is created for each example.
 The third example creates all the possible conformations a tyrosine might take in the 44th position of the A chain in
 5e0m.
 
-![All possible tyrosine conformations](assets/tyr_rotamers.png){ width=30% }
+![All possible tyrosine conformations](assets/tyr_rotamers.png){ width=45% }
 
 # Acknowledgements
 
