@@ -1,28 +1,4 @@
 ---
-title: 'PyMut: A rotamer based mutation library implemented in Python'
-tags:
-  - Python
-  - biology
-  - bioinformatics
-authors:
-  - name: Erdős Gábor^[corresponding author]
-    orcid: 0000-0001-6218-5192
-    affiliation: 1
-affiliations:
- - name: Department of Biochemistry, Eötvös Loránd University, Pázmány Péter stny 1/c, Budapest H-1117, Hungary. index: 1 
-   index: 1
-date: 24 March 2021
-bibliography: paper.bib
-
-# Optional fields if submitting to a AAS journal too, see this blog post:
-# https://blog.joss.theoj.org/2018/12/a-new-collaboration-with-aas-publishing
-aas-doi: 10.3847/xxxxx <- update this with the DOI from AAS once you know it.
-aas-journal: Astrophysical Journal <- The name of the AAS journal.
----
-
-asdasd
-
----
 title: 'Gala: A Python package for galactic dynamics'
 tags:
   - Python
