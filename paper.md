@@ -6,13 +6,9 @@ tags:
   - bioinformatics
   - molecular biology
 authors:
-  - name: Erdős Gábor^[Custom footnotes for e.g. denoting who the corresponding author is can be included like this.]
-    orcid: 0000-0003-0872-7098
-    affiliation: "1, 2" # (Multiple affiliations must be quoted)
-  - name: Author Without ORCID
-    affiliation: 2
-  - name: Author with no affiliation
-    affiliation: 3
+  - name: Erdős Gábor^[Corresponding author]
+    orcid: 000-0001-6218-5192
+    affiliation: 1
 affiliations:
  - name: Lyman Spitzer, Jr. Fellow, Princeton University
    index: 1
