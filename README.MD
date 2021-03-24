@@ -1,6 +1,6 @@
 # PyMUT
 
-Python3 method to introduce mutations to proteins
+PyMut: A rotamer based mutation library implemented in Python
 
 ### Usage:
 
