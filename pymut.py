@@ -97,7 +97,7 @@ class PDB:
         coords = self.pdb_dct[chain][res_num]
 
         # Do the rigid body transformation
-        sample_residue = RESIDUE_STRUCTUES[mutate_to]
+        sample_residue = RESIDUE_STRUCTURES[mutate_to]
         starting_points = np.mat([sample_residue["N"], sample_residue["CA"], sample_residue["C"]])
         end_points = np.mat([coords["N"], coords["CA"], coords["C"]])
         R, t = rigid_transform_3D(starting_points, end_points)
@@ -163,7 +163,7 @@ class PDB:
         # print(phi, psi)
         coords = self.pdb_dct[chain][res_num]
         # Do the rigid body transformation
-        sample_residue = RESIDUE_STRUCTUES[mutate_to]
+        sample_residue = RESIDUE_STRUCTURES[mutate_to]
         starting_points = np.mat([sample_residue["N"], sample_residue["CA"], sample_residue["C"]])
         end_points = np.mat([coords["N"], coords["CA"], coords["C"]])
         R, t = rigid_transform_3D(starting_points, end_points)
@@ -429,7 +429,7 @@ RESIDUE_ORDER = {'CYS': ['N', 'CA', 'C', 'O', 'CB', 'SG'],
                  'TYR': ['N', 'CA', 'C', 'O', 'CB', 'CG', 'CD1', 'CD2', 'CE1', 'CE2', 'CZ', 'OH'],
                  'MET': ['N', 'CA', 'C', 'O', 'CB', 'CG', 'SD', 'CE']}
 
-RESIDUE_STRUCTUES = {'CYS': {'N': np.array([-26.326, 16.318, -20.31]), 'CA': np.array([-26.19, 16.766, -21.675]),
+RESIDUE_STRUCTURES = {'CYS': {'N': np.array([-26.326, 16.318, -20.31]), 'CA': np.array([-26.19, 16.766, -21.675]),
                              'C': np.array([-24.778, 17.254, -21.943]), 'O': np.array([-24.219, 18.032, -21.166]),
                              'CB': np.array([-27.199, 17.891, -21.987]), 'SG': np.array([-27.292, 18.255, -23.71])},
                      'ASP': {'N': np.array([-11.652, 24.945, -23.047]), 'CA': np.array([-10.977, 26.196, -23.38]),
