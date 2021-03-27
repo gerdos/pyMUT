@@ -101,7 +101,7 @@ class PDB:
         starting_points = np.mat([sample_residue["N"], sample_residue["CA"], sample_residue["C"]])
         end_points = np.mat([coords["N"], coords["CA"], coords["C"]])
         R, t = rigid_transform_3D(starting_points, end_points)
-        original_cb = coords['CB']
+        # original_cb = coords['CB']
         break_atom = coords['ORDER'][
             max([idx for idx, atom in enumerate(coords['ORDER']) if atom in ['C', 'N', "CA", "O"]])]
         for i in coords['ORDER'][coords['ORDER'].index(break_atom) + 1:]:
@@ -111,9 +111,9 @@ class PDB:
             # Do the rigid body transformation
             for i in RESIDUE_ORDER[mutate_to][RESIDUE_ORDER[mutate_to].index(break_atom):]:
                 coords[i] = np.squeeze(np.asarray(np.dot(R, sample_residue[i]) + t.T))
-        if vector_distance(original_cb, coords['CB']) > 0.5:
-            sys.stderr.write(
-                'RMSD of the transofrmed CB atom is more than 0.5A, which indicates some problem with the rigid body transformation')
+        # if vector_distance(original_cb, coords['CB']) > 0.5:
+        #     sys.stderr.write(
+        #         'RMSD of the transofrmed CB atom is more than 0.5A, which indicates some problem with the rigid body transformation')
         coords['ORDER'] = RESIDUE_ORDER[mutate_to]
         coords['RES'] = mutate_to
         if mutate_to in ["ALA", "GLY"]:
