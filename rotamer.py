@@ -1,11 +1,11 @@
 from Bio.PDB.Atom import Atom
 from Bio.PDB.PDBIO import PDBIO
-from Bio.PDB import PDBParser, PPBuilder
+from Bio.PDB import PDBParser, Polypeptide
+from Bio import SVDSuperimposer
 import numpy as np
 import os
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'data')
-
 
 CHI_ANGLES = {"CHI1": {'CYS': {'axis': ['CA', 'CB'], 'ref_plane': ['N', 'CA', 'CB', 'SG']},
                        'ASP': {'axis': ['CA', 'CB'], 'ref_plane': ['N', 'CA', 'CB', 'CG']},
@@ -164,6 +164,7 @@ RESIDUE_STRUCTURES = {'CYS': {'N': np.array([-26.326, 16.318, -20.31]), 'CA': np
                               'CB': np.array([-38.517, 11.331, -26.058]), 'CG': np.array([-37.717, 11.965, -24.939]),
                               'SD': np.array([-37.139, 10.736, -23.755]), 'CE': np.array([-38.682, 10.189, -23.033])}}
 
+
 def load_rotamers(rotamer_loc="{}/rotamers.lib".format(DATA_DIR)):
     _dunbrack = {}
     with open(rotamer_loc) as fn:
@@ -259,15 +260,23 @@ def mutate(pdb_obj, chain, res_num, mutate_to, rotamer_lib=None, mutation_type="
         if atom.name not in ['C', 'N', 'CA', 'O']:
             residue = atom.parent
             residue.detach_child(atom.id)
-    polypeptide = PPBuilder().build_peptides(pdb_obj[0][chain])
-    phi, psi = polypeptide[0].get_phi_psi_list()[res_num]
+    polypeptide = Polypeptide.Polypeptide(pdb_obj[0][chain])
+    phi, psi = polypeptide.get_phi_psi_list()[res_num]
     phi, psi = round(np.rad2deg(phi), -1), round(np.rad2deg(psi), -1)
     # print(phi, psi)
     # print(_residue['N'].coord)
     sample_residue = RESIDUE_STRUCTURES[mutate_to]
     starting_points = np.mat([sample_residue["N"], sample_residue["CA"], sample_residue["C"]])
     end_points = np.mat([_residue["N"].coord, _residue["CA"].coord, _residue["C"].coord])
+
+    # TODO for some reason the translational part of SVDSuperimposer() is not correct
+    # sup = SVDSuperimposer.SVDSuperimposer()
+    # sup.set(starting_points, end_points)
+    # sup.run()
+    # rot, tran = sup.get_rotran()
+    # print(rot, tran.T)
     R, t = rigid_transform_3D(starting_points, end_points)
+    # print(R, t)
     for atom, coords in sample_residue.items():
         sample_residue[atom] = np.squeeze(np.asarray(np.dot(R, coords) + t.T))
     # print(pymut.vector_distance(sample_residue['N'], _residue["N"].coord))
@@ -285,15 +294,16 @@ def mutate(pdb_obj, chain, res_num, mutate_to, rotamer_lib=None, mutation_type="
         rotation_angle = dihedral_start - np.deg2rad(selected_rotamer[angle])
         axis = CHI_ANGLES[angle][mutate_to]['axis']
         # print(angle)
-        for atom in RESIDUE_ORDER[mutate_to][RESIDUE_ORDER[mutate_to].index(axis[1])+1:]:
-            sample_residue[atom] = np.dot(rotation_matrix(sample_residue[axis[0]] - sample_residue[axis[1]], rotation_angle),
-                        sample_residue[atom] - sample_residue[axis[1]]) + sample_residue[axis[1]]
+        for atom in RESIDUE_ORDER[mutate_to][RESIDUE_ORDER[mutate_to].index(axis[1]) + 1:]:
+            sample_residue[atom] = np.dot(
+                rotation_matrix(sample_residue[axis[0]] - sample_residue[axis[1]], rotation_angle),
+                sample_residue[atom] - sample_residue[axis[1]]) + sample_residue[axis[1]]
     for atom, coord in sample_residue.items():
         if atom not in ['C', 'N', 'CA', 'O']:
             new_atom = Atom(
                 name=atom,
                 element=atom[0],
-                fullname="{}{}".format(" "*(4-len(atom)), atom),  # for writing the structure, should be 4-char long
+                fullname="{}{}".format(" " * (4 - len(atom)), atom),  # for writing the structure, should be 4-char long
                 coord=np.asarray(coord),
                 bfactor=1.0,
                 altloc=" ",
