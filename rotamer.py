@@ -222,36 +222,6 @@ def dihedral_from_vectors(v1, v2, v3, v4):
     return np.arctan2(y, x)
 
 
-def rigid_transform_3D(A, B):
-    """
-    Calculates the transformation that A --> B in the form of B = R*A+t where R is the rotation and t is the translation
-    :param A: Set of points in thrre dimensions
-    :param B: Set of points in three dimensions
-    :return: R, t
-    """
-    assert len(A) == len(B)
-    dim_a = A.shape[0]
-    centroid_A = np.mean(A, axis=0)
-    centroid_B = np.mean(B, axis=0)
-
-    # centre the points
-    a_centered = A - np.tile(centroid_A, (dim_a, 1))
-    b_centered = B - np.tile(centroid_B, (dim_a, 1))
-
-    # Get rotation from covariance
-    cov_ab = np.transpose(a_centered) * b_centered
-    U, S, Vt = np.linalg.svd(cov_ab)
-    R = Vt.T * U.T
-
-    # Reflexion
-    if np.linalg.det(R) < 0:
-        Vt[2, :] *= -1
-        R = Vt.T * U.T
-
-    t = -R * centroid_A.T + centroid_B.T
-    return R, t
-
-
 def mutate(pdb_obj, chain, res_num, mutate_to, rotamer_lib=None, mutation_type="best"):
     _residue = list(pdb_obj[0][chain].get_residues())[res_num]
     # print(_residue)
@@ -269,16 +239,13 @@ def mutate(pdb_obj, chain, res_num, mutate_to, rotamer_lib=None, mutation_type="
     starting_points = np.mat([sample_residue["N"], sample_residue["CA"], sample_residue["C"]])
     end_points = np.mat([_residue["N"].coord, _residue["CA"].coord, _residue["C"].coord])
 
-    # TODO for some reason the translational part of SVDSuperimposer() is not correct
-    # sup = SVDSuperimposer.SVDSuperimposer()
-    # sup.set(starting_points, end_points)
-    # sup.run()
-    # rot, tran = sup.get_rotran()
-    # print(rot, tran.T)
-    R, t = rigid_transform_3D(starting_points, end_points)
-    # print(R, t)
+    sup = SVDSuperimposer.SVDSuperimposer()
+    sup.set(end_points, starting_points)
+    sup.run()
+    rot, tran = sup.get_rotran()
+
     for atom, coords in sample_residue.items():
-        sample_residue[atom] = np.squeeze(np.asarray(np.dot(R, coords) + t.T))
+        sample_residue[atom] = np.squeeze(np.asarray(np.dot(coords, rot) + tran))
     # print(pymut.vector_distance(sample_residue['N'], _residue["N"].coord))
     # print(f"Structure has {len(list(structure.get_atoms()))} atoms")
 
