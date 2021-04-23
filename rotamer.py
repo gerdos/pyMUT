@@ -7,6 +7,217 @@ import os
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'data')
 
+VW_RADII = {
+    "ALA": {
+        "N": 1.7,
+        "CA": 2.0,
+        "C": 1.7,
+        "O": 1.4,
+        "CB": 2.0
+    },
+    "CYS": {
+        "N": 1.7,
+        "CA": 2.0,
+        "C": 1.7,
+        "O": 1.4,
+        "CB": 2.0,
+        "SG": 1.8
+    },
+    "ASP": {
+        "N": 1.7,
+        "CA": 2.0,
+        "C": 1.7,
+        "O": 1.4,
+        "CB": 2.0,
+        "CG": 1.7,
+        "OD1": 1.5,
+        "OD2": 1.5
+    },
+    "GLU": {
+        "N": 1.7,
+        "CA": 2.0,
+        "C": 1.7,
+        "O": 1.4,
+        "CB": 2.0,
+        "CG": 2.0,
+        "CD": 1.7,
+        "OE1": 1.5,
+        "OE2": 1.5
+    },
+    "PHE": {
+        "N": 1.7,
+        "CA": 2.0,
+        "C": 1.7,
+        "O": 1.4,
+        "CB": 2.0,
+        "CG": 1.7,
+        "CD1": 1.9,
+        "CD2": 1.9,
+        "CE1": 1.9,
+        "CE2": 1.9,
+        "CZ": 1.9
+    },
+    "GLY": {
+        "N": 1.7,
+        "CA": 2.0,
+        "C": 1.7,
+        "O": 1.4
+    },
+    "HIS": {
+        "N": 1.7,
+        "CA": 2.0,
+        "C": 1.7,
+        "O": 1.4,
+        "CB": 2.0,
+        "CG": 1.7,
+        "ND1": 1.7,
+        "CD2": 1.9,
+        "CE1": 1.9,
+        "NE2": 1.7
+    },
+    "ILE": {
+        "N": 1.7,
+        "CA": 2.0,
+        "C": 1.7,
+        "O": 1.4,
+        "CB": 2.0,
+        "CG1": 2.0,
+        "CG2": 2.0,
+        "CD1": 2.0
+    },
+    "LYS": {
+        "N": 1.7,
+        "CA": 2.0,
+        "C": 1.7,
+        "O": 1.4,
+        "CB": 2.0,
+        "CG": 2.0,
+        "CD": 2.0,
+        "CE": 2.0,
+        "NZ": 2.0
+    },
+    "LEU": {
+        "N": 1.7,
+        "CA": 2.0,
+        "C": 1.7,
+        "O": 1.4,
+        "CB": 2.0,
+        "CG": 2.0,
+        "CD1": 2.0,
+        "CD2": 2.0
+    },
+    "MET": {
+        "N": 1.7,
+        "CA": 2.0,
+        "C": 1.7,
+        "O": 1.4,
+        "CB": 2.0,
+        "CG": 2.0,
+        "SD": 1.8,
+        "CE": 2.0
+    },
+    "ASN": {
+        "N": 1.7,
+        "CA": 2.0,
+        "C": 1.7,
+        "O": 1.4,
+        "CB": 2.0,
+        "CG": 1.7,
+        "OD1": 1.6,
+        "ND2": 1.6
+    },
+    "PRO": {
+        "N": 1.7,
+        "CA": 2.0,
+        "C": 1.7,
+        "O": 1.4,
+        "CB": 2.0,
+        "CG": 2.0,
+        "CD": 2.0
+    },
+    "GLN": {
+        "N": 1.7,
+        "CA": 2.0,
+        "C": 1.7,
+        "O": 1.4,
+        "CB": 2.0,
+        "CG": 2.0,
+        "CD": 1.7,
+        "OE1": 1.6,
+        "NE2": 1.6
+    },
+    "ARG": {
+        "N": 1.7,
+        "CA": 2.0,
+        "C": 1.7,
+        "O": 1.4,
+        "CB": 2.0,
+        "CG": 2.0,
+        "CD": 2.0,
+        "NE": 1.7,
+        "CZ": 2.0,
+        "NH1": 2.0,
+        "NH2": 2.0
+    },
+    "SER": {
+        "N": 1.7,
+        "CA": 2.0,
+        "C": 1.7,
+        "O": 1.4,
+        "CB": 2.0,
+        "OG": 1.6
+    },
+    "THR": {
+        "N": 1.7,
+        "CA": 2.0,
+        "C": 1.7,
+        "O": 1.4,
+        "CB": 2.0,
+        "OG1": 1.6,
+        "CG2": 2.0
+    },
+    "VAL": {
+        "N": 1.7,
+        "CA": 2.0,
+        "C": 1.7,
+        "O": 1.4,
+        "CB": 2.0,
+        "CG1": 2.0,
+        "CG2": 2.0
+    },
+    "TRP": {
+        "N": 1.7,
+        "CA": 2.0,
+        "C": 1.7,
+        "O": 1.4,
+        "CB": 2.0,
+        "CG": 1.7,
+        "CD1": 1.9,
+        "CD2": 1.7,
+        "NE1": 1.7,
+        "CE2": 1.7,
+        "CE3": 1.9,
+        "CZ2": 1.9,
+        "CZ3": 1.9,
+        "CH2": 1.9
+    },
+    "TYR": {
+        "N": 1.7,
+        "CA": 2.0,
+        "C": 1.7,
+        "O": 1.4,
+        "CB": 2.0,
+        "CG": 1.7,
+        "CD1": 1.9,
+        "CD2": 1.9,
+        "CE1": 1.9,
+        "CE2": 1.9,
+        "CZ": 1.7,
+        "OH": 1.6
+    }
+}
+
+
 CHI_ANGLES = {"CHI1": {'CYS': {'axis': ['CA', 'CB'], 'ref_plane': ['N', 'CA', 'CB', 'SG']},
                        'ASP': {'axis': ['CA', 'CB'], 'ref_plane': ['N', 'CA', 'CB', 'CG']},
                        'SER': {'axis': ['CA', 'CB'], 'ref_plane': ['N', 'CA', 'CB', 'OG']},
@@ -132,9 +343,55 @@ def dihedral_from_vectors(v1, v2, v3, v4):
     y = np.dot(np.cross(b1, v), w)
     return np.arctan2(y, x)
 
+def distance(x, y):
+    return np.sqrt((x[0] - y[0]) ** 2 + (x[1] - y[1]) ** 2 + (x[2] - y[2]) ** 2)
+
+
+def select_best_rotemer_based_on_clashes(pdb_object, chain, res_num, mutate_to, sample_residue, rotamers):
+    best_rotamer = None
+    lowest_energy = float('inf')
+    for rotamer in rotamers:
+        vdw_energy = 0
+        # Introduce the rotamer
+        for angle in ['CHI1', 'CHI2', 'CHI3', 'CHI4']:
+            if mutate_to not in CHI_ANGLES[angle]:
+                continue
+            dihedral_start = dihedral_from_vectors(
+                *[sample_residue[x] for x in CHI_ANGLES[angle][mutate_to]['ref_plane']])
+            rotation_angle = dihedral_start - np.deg2rad(rotamer[angle])
+            axis = CHI_ANGLES[angle][mutate_to]['axis']
+            # print(angle)
+            for atom in RESIDUE_ORDER[mutate_to][RESIDUE_ORDER[mutate_to].index(axis[1]) + 1:]:
+                sample_residue[atom] = np.dot(
+                    rotation_matrix(sample_residue[axis[0]] - sample_residue[axis[1]], rotation_angle),
+                    sample_residue[atom] - sample_residue[axis[1]]) + sample_residue[axis[1]]
+
+        for rotamer_atom, rotamer_vector in sample_residue.items():
+            for residues in list(pdb_object[0][chain].get_residues()):
+                for residue_atoms in list(residues.get_atoms()):
+                    if residues.get_id()[1] == res_num:  # Skip itself
+                        continue
+                    # print(residues.get_id()[1], residue_atoms.get_id())
+                    # print(residues.get_resname(), residue_atoms.coord, rotamer_atom, rotamer_vector)
+                    dist = distance(residue_atoms.coord, rotamer_vector)
+                    if dist > 6:
+                        continue
+                    try:
+                        vdw_radi = VW_RADII[residues.get_resname()][residue_atoms.get_id()] + VW_RADII[mutate_to][rotamer_atom]
+                    except KeyError:
+                        continue
+                    # print(residues.get_id()[1], residue_atoms.get_id(), rotamer_atom, dist, ((vdw_radi / dist) ** 12 - (vdw_radi / dist) ** 6))
+                    vdw_energy += ((vdw_radi / dist) ** 12 - (vdw_radi / dist) ** 6)
+        # print(rotamer, vdw_energy)
+        # print('________________________')
+        if vdw_energy < lowest_energy:
+            lowest_energy = vdw_energy
+            best_rotamer = rotamer
+    return best_rotamer
+
 
 def mutate(pdb_obj, chain, res_num, mutate_to, rotamer_lib=None, mutation_type="best"):
-    _residue = list(pdb_obj[0][chain].get_residues())[res_num]
+    _residue = [x for x in pdb_obj[0][chain].get_residues() if x.get_id()[1] == res_num][0]
     # print(_residue)
     _residue_atoms = list(_residue.get_atoms())
     for atom in _residue_atoms:
@@ -163,23 +420,31 @@ def mutate(pdb_obj, chain, res_num, mutate_to, rotamer_lib=None, mutation_type="
         sample_residue[atom] = np.squeeze(np.asarray(np.dot(coords, rot) + tran))
     # print(pymut.vector_distance(sample_residue['N'], _residue["N"].coord))
     # print(f"Structure has {len(list(structure.get_atoms()))} atoms")
+    if mutate_to not in ["ALA", "GLY"]:
+        if not rotamer_lib:
+            rotamer_lib = load_rotamers()
 
-    # if not rotamer_lib:
-    #     rotamer_lib = pymut.load_rotamers()
-    # selected_rotamer = sorted(rotamer_lib[mutate_to][phi][psi], key=lambda x: x['prob'], reverse=True)[0]
-    selected_rotamer = {'prob': 0.22261, 'CHI1': -66.4, 'CHI2': -178.6, 'CHI3': -179.7, 'CHI4': 179.3}
-    # Introduce the rotamer
-    for angle in ['CHI1', 'CHI2', 'CHI3', 'CHI4']:
-        if mutate_to not in CHI_ANGLES[angle]:
-            continue
-        dihedral_start = dihedral_from_vectors(*[sample_residue[x] for x in CHI_ANGLES[angle][mutate_to]['ref_plane']])
-        rotation_angle = dihedral_start - np.deg2rad(selected_rotamer[angle])
-        axis = CHI_ANGLES[angle][mutate_to]['axis']
-        # print(angle)
-        for atom in RESIDUE_ORDER[mutate_to][RESIDUE_ORDER[mutate_to].index(axis[1]) + 1:]:
-            sample_residue[atom] = np.dot(
-                rotation_matrix(sample_residue[axis[0]] - sample_residue[axis[1]], rotation_angle),
-                sample_residue[atom] - sample_residue[axis[1]]) + sample_residue[axis[1]]
+        if mutation_type == 'first':
+            selected_rotamer = sorted(rotamer_lib[mutate_to][phi][psi], key=lambda x: x['prob'], reverse=True)[0]
+        elif mutation_type == 'random':
+            p = np.array([x['prob'] for x in rotamer_lib[mutate_to][phi][psi]])
+            p /= p.sum()
+            selected_rotamer = np.random.choice(rotamer_lib[mutate_to][phi][psi], p=p)
+        elif mutation_type == 'best':
+            selected_rotamer = select_best_rotemer_based_on_clashes(pdb_obj, chain, res_num, mutate_to, sample_residue, rotamer_lib[mutate_to][phi][psi])
+
+        # Introduce the rotamer
+        for angle in ['CHI1', 'CHI2', 'CHI3', 'CHI4']:
+            if mutate_to not in CHI_ANGLES[angle]:
+                continue
+            dihedral_start = dihedral_from_vectors(*[sample_residue[x] for x in CHI_ANGLES[angle][mutate_to]['ref_plane']])
+            rotation_angle = dihedral_start - np.deg2rad(selected_rotamer[angle])
+            axis = CHI_ANGLES[angle][mutate_to]['axis']
+            # print(angle)
+            for atom in RESIDUE_ORDER[mutate_to][RESIDUE_ORDER[mutate_to].index(axis[1]) + 1:]:
+                sample_residue[atom] = np.dot(
+                    rotation_matrix(sample_residue[axis[0]] - sample_residue[axis[1]], rotation_angle),
+                    sample_residue[atom] - sample_residue[axis[1]]) + sample_residue[axis[1]]
     for atom, coord in sample_residue.items():
         if atom not in ['C', 'N', 'CA', 'O']:
             new_atom = Atom(
@@ -200,7 +465,7 @@ def mutate(pdb_obj, chain, res_num, mutate_to, rotamer_lib=None, mutation_type="
 parser = PDBParser(QUIET=1)
 structure = parser.get_structure("1ctf", "test/5e0m.pdb")
 all_atoms = list(structure.get_atoms())
-mutate(structure, 'A', 1, 'GLU')
+mutate(structure, 'A', 4, 'LYS', mutation_type='random')
 
 io = PDBIO()
 io.set_structure(structure)
