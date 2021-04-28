@@ -391,8 +391,7 @@ def select_best_rotemer_based_on_clashes(pdb_object, chain, res_num, mutate_to, 
 
 
 def mutate(pdb_obj, chain, res_num, mutate_to, rotamer_lib=None, mutation_type="best"):
-    _residue = [x for x in pdb_obj[0][chain].get_residues() if x.get_id()[1] == res_num][0]
-    _residue_idx = _residue.get_id()[1]
+    _residue, _residue_idx = [(x, n) for n, x in enumerate(pdb_obj[0][chain].get_residues()) if x.get_id()[1] == res_num][0]
     # print(_residue)
     _residue_atoms = list(_residue.get_atoms())
     for atom in _residue_atoms:
@@ -401,6 +400,10 @@ def mutate(pdb_obj, chain, res_num, mutate_to, rotamer_lib=None, mutation_type="
             residue.detach_child(atom.id)
     polypeptide = Polypeptide.Polypeptide(pdb_obj[0][chain])
     phi, psi = polypeptide.get_phi_psi_list()[_residue_idx]
+    if not phi:
+        phi = 0
+    if not psi:
+        psi = 0
     phi, psi = round(np.rad2deg(phi), -1), round(np.rad2deg(psi), -1)
     # print(phi, psi)
     # print(_residue['N'].coord)
