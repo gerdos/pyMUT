@@ -392,7 +392,7 @@ def select_best_rotemer_based_on_clashes(pdb_object, chain, res_num, mutate_to, 
 
 def mutate(pdb_obj, chain, res_num, mutate_to, rotamer_lib=None, mutation_type="best"):
     _residue = [x for x in pdb_obj[0][chain].get_residues() if x.get_id()[1] == res_num][0]
-    _residue_idx = _residue.geg_id()[1]
+    _residue_idx = _residue.get_id()[1]
     # print(_residue)
     _residue_atoms = list(_residue.get_atoms())
     for atom in _residue_atoms:
