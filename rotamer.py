@@ -392,6 +392,7 @@ def select_best_rotemer_based_on_clashes(pdb_object, chain, res_num, mutate_to, 
 
 def mutate(pdb_obj, chain, res_num, mutate_to, rotamer_lib=None, mutation_type="best"):
     _residue = [x for x in pdb_obj[0][chain].get_residues() if x.get_id()[1] == res_num][0]
+    _residue_idx = _residue.geg_id()[1]
     # print(_residue)
     _residue_atoms = list(_residue.get_atoms())
     for atom in _residue_atoms:
@@ -399,7 +400,7 @@ def mutate(pdb_obj, chain, res_num, mutate_to, rotamer_lib=None, mutation_type="
             residue = atom.parent
             residue.detach_child(atom.id)
     polypeptide = Polypeptide.Polypeptide(pdb_obj[0][chain])
-    phi, psi = polypeptide.get_phi_psi_list()[res_num]
+    phi, psi = polypeptide.get_phi_psi_list()[_residue_idx]
     phi, psi = round(np.rad2deg(phi), -1), round(np.rad2deg(psi), -1)
     # print(phi, psi)
     # print(_residue['N'].coord)
@@ -431,7 +432,7 @@ def mutate(pdb_obj, chain, res_num, mutate_to, rotamer_lib=None, mutation_type="
             p /= p.sum()
             selected_rotamer = np.random.choice(rotamer_lib[mutate_to][phi][psi], p=p)
         elif mutation_type == 'best':
-            selected_rotamer = select_best_rotemer_based_on_clashes(pdb_obj, chain, res_num, mutate_to, sample_residue, rotamer_lib[mutate_to][phi][psi])
+            selected_rotamer = select_best_rotemer_based_on_clashes(pdb_obj, chain, _residue_idx, mutate_to, sample_residue, rotamer_lib[mutate_to][phi][psi])
 
         # Introduce the rotamer
         for angle in ['CHI1', 'CHI2', 'CHI3', 'CHI4']:
