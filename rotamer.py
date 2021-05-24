@@ -466,11 +466,97 @@ def mutate(pdb_obj, chain, res_num, mutate_to, rotamer_lib=None, mutation_type="
     return
 
 
-parser = PDBParser(QUIET=1)
-structure = parser.get_structure("1ctf", "test/5e0m.pdb")
-all_atoms = list(structure.get_atoms())
-mutate(structure, 'A', 4, 'LYS', mutation_type='random')
+def gener_all_rotamers(pdb_obj, chain, res_num, mutate_to, rotamer_lib=None):
+    _residue, _residue_idx = [(x, n) for n, x in enumerate(pdb_obj[0][chain].get_residues()) if x.get_id()[1] == res_num][0]
+    # print(_residue)
+    _residue_atoms = list(_residue.get_atoms())
+    for atom in _residue_atoms:
+        if atom.name not in ['C', 'N', 'CA', 'O']:
+            residue = atom.parent
+            residue.detach_child(atom.id)
+    polypeptide = Polypeptide.Polypeptide(pdb_obj[0][chain])
+    phi, psi = polypeptide.get_phi_psi_list()[_residue_idx]
+    if not phi:
+        phi = 0
+    if not psi:
+        psi = 0
+    phi, psi = round(np.rad2deg(phi), -1), round(np.rad2deg(psi), -1)
+    # print(phi, psi)
+    # print(_residue['N'].coord)
+    sample_residue = {}
 
-io = PDBIO()
-io.set_structure(structure)
-io.save("test.pdb")
+    with open('{}/{}.pdb'.format(DATA_DIR, mutate_to.upper())) as fn:
+        for line in fn:
+            sample_residue[line[12:16].strip()] = np.array([float(line[30:38]), float(line[38:46]), float(line[46:54])])
+    starting_points = np.mat([sample_residue["N"], sample_residue["CA"], sample_residue["C"]])
+    try:
+        end_points = np.mat([_residue["N"].coord, _residue["CA"].coord, _residue["C"].coord])
+    except KeyError:
+        sys.stderr.write("Missing backbone residues at {}".format(pdb_obj))
+        return
+
+    sup = SVDSuperimposer.SVDSuperimposer()
+    sup.set(end_points, starting_points)
+    sup.run()
+    rot, tran = sup.get_rotran()
+
+    for atom, coords in sample_residue.items():
+        sample_residue[atom] = np.squeeze(np.asarray(np.dot(coords, rot) + tran))
+    # print(pymut.vector_distance(sample_residue['N'], _residue["N"].coord))
+    # print(f"Structure has {len(list(structure.get_atoms()))} atoms")
+    if mutate_to not in ["ALA", "GLY"]:
+        if not rotamer_lib:
+            rotamer_lib = load_rotamers()
+        for selected_rotamer in rotamer_lib[mutate_to][phi][psi]:
+            _residue_atoms = list(_residue.get_atoms())
+            for atom in _residue_atoms:
+                if atom.name not in ['C', 'N', 'CA', 'O']:
+                    _residue = atom.parent
+                    _residue.detach_child(atom.id)
+            # Introduce the rotamer
+            for angle in ['CHI1', 'CHI2', 'CHI3', 'CHI4']:
+                if mutate_to not in CHI_ANGLES[angle]:
+                    continue
+                dihedral_start = dihedral_from_vectors(*[sample_residue[x] for x in CHI_ANGLES[angle][mutate_to]['ref_plane']])
+                rotation_angle = dihedral_start - np.deg2rad(selected_rotamer[angle])
+                axis = CHI_ANGLES[angle][mutate_to]['axis']
+                # print(angle)
+                for atom in RESIDUE_ORDER[mutate_to][RESIDUE_ORDER[mutate_to].index(axis[1]) + 1:]:
+                    sample_residue[atom] = np.dot(
+                        rotation_matrix(sample_residue[axis[0]] - sample_residue[axis[1]], rotation_angle),
+                        sample_residue[atom] - sample_residue[axis[1]]) + sample_residue[axis[1]]
+            for atom, coord in sample_residue.items():
+                if atom not in ['C', 'N', 'CA', 'O']:
+                    new_atom = Atom(
+                        name=atom,
+                        element=atom[0],
+                        fullname="{}{}".format(" " * (4 - len(atom)), atom),
+                        # for writing the structure, should be 4-char long
+                        coord=np.asarray(coord),
+                        bfactor=1.0,
+                        altloc=" ",
+                        occupancy=1.0,
+                        serial_number=9999  # does not matter much, only for writing the struct.
+                    )
+                    _residue.add(new_atom)
+            _residue.resname = mutate_to
+            yield pdb_obj
+    else:
+        for atom, coord in sample_residue.items():
+            if atom not in ['C', 'N', 'CA', 'O']:
+                new_atom = Atom(
+                    name=atom,
+                    element=atom[0],
+                    fullname="{}{}".format(" " * (4 - len(atom)), atom),  # for writing the structure, should be 4-char long
+                    coord=np.asarray(coord),
+                    bfactor=1.0,
+                    altloc=" ",
+                    occupancy=1.0,
+                    serial_number=9999  # does not matter much, only for writing the struct.
+                )
+                _residue.add(new_atom)
+        _residue.resname = mutate_to
+        yield pdb_obj
+
+
+

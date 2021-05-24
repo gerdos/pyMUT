@@ -1,10 +1,29 @@
-# PyMUT
+# PyMut
 
 PyMut: A rotamer based mutation library implemented in Python
 
 ### Usage:
 
+The latest version of PyMut offers a way to introduce mutations using the Biopython, as well as a less robust standalone method.
+
 Download the library, and place its location inside your $PYTHON_PATH environment variable
+
+#### If you have Biopython installed (recommended)
+
+    from rotamer import *
+    from Bio.PDB.PDBIO import PDBIO
+    from Bio.PDB import PDBParser
+
+    parser = PDBParser(QUIET=1)
+    structure = parser.get_structure("my_structure", "5e0m.pdb")
+    all_atoms = list(structure.get_atoms())
+    mutate(structure, 'A', 44, 'TYR', mutation_type='first')
+
+    io = PDBIO()
+    io.set_structure(structure)
+    io.save("test.pdb")
+
+#### If you dont have biopython installed you can use PyMut's own PDB parser:
 
     from pymut import *
     pdb_obj = PDB('5e0m.pdb')
