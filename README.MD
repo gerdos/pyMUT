@@ -4,11 +4,18 @@ PyMut: A rotamer based mutation library implemented in Python
 
 ### Usage:
 
-The latest version of PyMut offers a way to introduce mutations using the Biopython, as well as a less robust standalone method.
+PyMUT offers a fast and reliable way to introduce mutations using the Biopython
 
-Download the library, and place its location inside your $PYTHON_PATH environment variable
+#### Command line tool
 
-#### If you have Biopython installed (recommended)
+    git clone https://github.com/gerdos/pyMUT
+    cd pyMUT
+    python3 mutate.py test/5e0m.pdb A 44 TYR
+
+If you want to use PyMUT as a python library (recommended) close the repository and place its location inside your `$PYTHON_PATH` environment variable
+
+
+#### Programmatic usage
 
     from pymut import *
     from Bio.PDB.PDBIO import PDBIO
@@ -22,7 +29,6 @@ Download the library, and place its location inside your $PYTHON_PATH environmen
     io = PDBIO()
     io.set_structure(structure)
     io.save("test.pdb")
-
 
 The resulting PDB file will contain the mutation. Please note, that resulting PDB file will only contain ATOM
 coordinates.
@@ -45,27 +51,31 @@ mutation_type  |  str | 'first' | How to select the rotamer. 3 possible options:
 
 ### Dependencies
 
-PyMUT only requires numpy. The current implementation was tested on version 1.19.3
+PyMUT requires numpy and Biopython. The current implementation was tested on version 1.19.3+ and 1.7+ respectively
 
 To install numpy on a standard Linux system
 
     pip3 install numpy
+    pip3 install biopython
 
 ### Before use
 
 The algorithm assumes continuous neighboring residues, which is required for the dihedral calculations.
 
-N and C terminal residues should be omitted, as the PHI and PSI angles are not defined. The algorithm will assume 0 for the missing degree
+N and C terminal residues should be omitted, as the PHI and PSI angles are not defined. The algorithm will assume 0 for
+the missing degree
 
 ### References, licenses
 
 This project is licensed under the terms of the MIT license.
 
-The rotamer library is based on the following article: 
+The rotamer library is based on the following article:
 
-A Smoothed Backbone-Dependent Rotamer Library for Proteins Derived from Adaptive Kernel Density Estimates and Regressions  *Maxim V. Shapovalov Roland L. Dunbrack Jr.*
+A Smoothed Backbone-Dependent Rotamer Library for Proteins Derived from Adaptive Kernel Density Estimates and
+Regressions  *Maxim V. Shapovalov Roland L. Dunbrack Jr.*
 
-The rotamer library is licensed by <a href='https://creativecommons.org/licenses/by/4.0/legalcode' target='_blank'>Creative Commons CC BY 4.0 license</a>, and can be freely used, modified and distributed. 
+The rotamer library is licensed by <a href='https://creativecommons.org/licenses/by/4.0/legalcode' target='_blank'>
+Creative Commons CC BY 4.0 license</a>, and can be freely used, modified and distributed. 
 
 
 
