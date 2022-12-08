@@ -14,7 +14,7 @@ def load_best_rotamer(rotamer_loc="{}/rotamers.lib".format(DATA_DIR)):
                 _dunbrack[line.split()[0]][int(line.split()[1])] = {}
             if not int(line.split()[2]) in _dunbrack[line.split()[0]][int(line.split()[1])]:
                 _dunbrack[line.split()[0]][int(line.split()[1])][int(line.split()[2])] = []
-            if float(line.split()[8]) < 0.05:
+            if _dunbrack[line.split()[0]][int(line.split()[1])][int(line.split()[2])] and float(line.split()[8]) < 0.05:
                 continue
             _dunbrack[line.split()[0]][int(line.split()[1])][int(line.split()[2])].append({
                 'prob': float(line.split()[8]),
@@ -30,4 +30,4 @@ with open("data/better_5_rotamers", 'w') as fn:
         for k,l in j.items():
             for u,v in l.items():
                 for q in v:
-                    fn.write(str(i) + '\t' + str(k) + '\t' + str(u) + '\t' + str(q) + '\n')
+                    fn.write(str(i) + '\t' + str(k) + '\t' + str(u) + '\t' + str(q['prob']) + '\t' + str(q['CHI1']) + '\t' + str(q['CHI2']) + '\t'+ str(q['CHI3']) + '\t' + str(q['CHI4']) + '\n')
